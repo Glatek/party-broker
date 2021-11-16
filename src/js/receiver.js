@@ -89,7 +89,7 @@ export default class Receiver extends EventTarget {
     this.peer = new RTCPeerConnection({
       iceServers: [
         {
-          urls: 'stun:stun.l.google.com:19302'
+          urls: 'stun:stun.bahnhof.net:3478'
         }
       ]
     });
