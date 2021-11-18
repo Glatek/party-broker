@@ -26,11 +26,11 @@ const corsHeaders = () => ({
   "Access-Control-Request-Method": "POST, GET, OPTIONS",
 });
 
-async function joinRoom(roomId: string, request: Request) {
+async function joinRoom(roomId: string) {
   if (openRooms.has(roomId)) {
     const peerId = await v5.generate(
       roomId,
-      textEncoder.encode(request.toString()),
+      textEncoder.encode(crypto.randomUUID()),
     );
 
     // First one to join room is host.
@@ -105,7 +105,7 @@ async function handler(request: Request): Promise<Response> {
 
     if (roomId && request.method === "GET" && sse === "sse") {
       try {
-        return joinRoom(roomId, request);
+        return joinRoom(roomId);
       } catch (e) {
         return errorResponse(e);
       }
