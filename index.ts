@@ -23,6 +23,7 @@ const openRooms: Map<string, string | null> = new Map();
 
 const corsHeaders = () => ({
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Request-Method": "POST, GET, OPTIONS",
 });
 
 async function joinRoom(roomId: string, request: Request) {
@@ -92,6 +93,15 @@ async function handler(request: Request): Promise<Response> {
 
   if (url.pathname.includes("/room/")) {
     const [, , roomId, sse] = url.pathname.split("/");
+
+    if (request.method === "OPTION") {
+      return new Response("OK", {
+        status: 204,
+        headers: {
+          ...corsHeaders(),
+        },
+      });
+    }
 
     if (roomId && request.method === "GET" && sse === "sse") {
       try {
