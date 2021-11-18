@@ -1,18 +1,5 @@
-import { serve } from "https://deno.land/std@0.114.0/http/server.ts";
-function generateGUID(webCrypto: boolean = true): string {
-  const useWebCrypto = webCrypto && "crypto" in window &&
-    "getRandomValues" in crypto;
-
-  // @ts-ignore
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(
-    /[018]/g,
-    (c: number) =>
-      (c ^
-        (useWebCrypto
-            ? crypto.getRandomValues(new Uint8Array(1))[0]
-            : Math.floor(256 * Math.random())) & 15 >> c / 4).toString(16),
-  );
-}
+import { serve } from "https://deno.land/std@0.115.1/http/server.ts";
+import { v5 } from "https://deno.land/std@0.115.1/uuid/mod.ts";
 
 function mime(text: string) {
   const ext = text.split(".").pop();
@@ -34,16 +21,19 @@ const createEvent = (eventName: string, data: Object) =>
 
 const openRooms: Map<string, string | null> = new Map();
 
-function joinRoom(roomName: string) {
-  if (openRooms.has(roomName)) {
-    const peerId = generateGUID();
+async function joinRoom(roomId: string, request: Request) {
+  if (openRooms.has(roomId)) {
+    const peerId = await v5.generate(
+      roomId,
+      textEncoder.encode(request.toString()),
+    );
 
     // First one to join room is host.
-    if (openRooms.get(roomName) === null) {
-      openRooms.set(roomName, peerId);
+    if (openRooms.get(roomId) === null) {
+      openRooms.set(roomId, peerId);
     }
 
-    const channel = new BroadcastChannel(roomName);
+    const channel = new BroadcastChannel(roomId);
 
     // Connect to room;
     const body = new ReadableStream<Uint8Array>({
@@ -73,23 +63,17 @@ function joinRoom(roomName: string) {
   }
 }
 
-function createRoom(roomName: string) {
-  if (openRooms.has(roomName)) {
+function createRoom(roomId: string) {
+  if (openRooms.has(roomId)) {
     throw new Error("Room exists");
   } else {
-    openRooms.set(roomName, null);
+    openRooms.set(roomId, null);
   }
 }
 
-function emitInRoom(roomName: string, event: { type: string; value: any }) {
-  const channel = new BroadcastChannel(roomName);
+function emitInRoom(roomId: string, event: { type: string; value: any }) {
+  const channel = new BroadcastChannel(roomId);
   channel.postMessage(event);
-}
-
-function okResponse(message: string) {
-  return new Response(message, {
-    status: 200,
-  });
 }
 
 function errorResponse(e: Error) {
@@ -100,37 +84,31 @@ function errorResponse(e: Error) {
 
 async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  let filePath = "./src" + url.pathname;
-  filePath = filePath === "./src/" ? "./src/index.html" : filePath;
-
-  if (url.pathname === "/station") {
-    filePath = "src/station.html";
-  }
 
   if (url.pathname.includes("/room/")) {
-    const [, , roomName, sse] = url.pathname.split("/");
+    const [, , roomId, sse] = url.pathname.split("/");
 
-    if (roomName && request.method === "GET" && sse === "sse") {
+    if (roomId && request.method === "GET" && sse === "sse") {
       try {
-        return joinRoom(roomName);
+        return joinRoom(roomId, request);
       } catch (e) {
         return errorResponse(e);
       }
     }
 
-    if (roomName && request.method === "POST" && sse === "sse") {
+    if (roomId && request.method === "POST" && sse === "sse") {
       const event = await request.json();
 
-      emitInRoom(roomName, event);
+      emitInRoom(roomId, event);
 
       return new Response("OK", {
         status: 200,
       });
     }
 
-    if (roomName === "create" && request.method === "POST") {
+    if (roomId === "create" && request.method === "POST") {
       try {
-        const roomId = generateGUID();
+        const roomId = crypto.randomUUID();
 
         createRoom(roomId);
 
@@ -148,19 +126,6 @@ async function handler(request: Request): Promise<Response> {
       } catch (e) {
         return errorResponse(e);
       }
-    }
-  } else {
-    try {
-      const file = await Deno.readFile(filePath);
-      const contentType = mime(filePath);
-
-      return new Response(file, {
-        headers: {
-          "Content-Type": contentType,
-        },
-      });
-    } catch (e) {
-      return errorResponse(e);
     }
   }
 
