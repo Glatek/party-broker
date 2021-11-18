@@ -97,9 +97,9 @@ async function handler(request: Request): Promise<Response> {
     if (request.method === "OPTION") {
       return new Response("OK", {
         status: 204,
-        headers: {
+        headers: new Headers({
           ...corsHeaders(),
-        },
+        }),
       });
     }
 
@@ -118,7 +118,9 @@ async function handler(request: Request): Promise<Response> {
 
       return new Response("OK", {
         status: 200,
-        ...corsHeaders(),
+        headers: new Headers({
+          ...corsHeaders(),
+        }),
       });
     }
 
@@ -133,11 +135,11 @@ async function handler(request: Request): Promise<Response> {
             roomId,
           }),
           {
-            headers: {
+            headers: new Headers({
               "Cache-Control": "no-cache",
               "Content-Type": mime(".json"),
               ...corsHeaders(),
-            },
+            }),
           },
         );
       } catch (e) {
