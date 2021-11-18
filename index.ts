@@ -21,10 +21,8 @@ const createEvent = (eventName: string, data: Object) =>
 
 const openRooms: Map<string, string | null> = new Map();
 
-const corsHeaders = (request: Request) => ({
-  "Access-Control-Allow-Origin": request.headers.get("x-env") === "dev"
-    ? "http://localhost:1337"
-    : "https://nightcore.app",
+const corsHeaders = () => ({
+  "Access-Control-Allow-Origin": "*",
 });
 
 async function joinRoom(roomId: string, request: Request) {
@@ -62,7 +60,7 @@ async function joinRoom(roomId: string, request: Request) {
         "Connection": "Keep-Alive",
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        ...corsHeaders(request),
+        ...corsHeaders(),
       }),
     });
   } else {
@@ -110,7 +108,7 @@ async function handler(request: Request): Promise<Response> {
 
       return new Response("OK", {
         status: 200,
-        ...corsHeaders(request),
+        ...corsHeaders(),
       });
     }
 
@@ -128,7 +126,7 @@ async function handler(request: Request): Promise<Response> {
             headers: {
               "Cache-Control": "no-cache",
               "Content-Type": mime(".json"),
-              ...corsHeaders(request),
+              ...corsHeaders(),
             },
           },
         );
