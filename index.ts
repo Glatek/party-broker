@@ -21,11 +21,6 @@ const createEvent = (eventName: string, data: Object) =>
 
 const openRooms: Map<string, string | null> = new Map();
 
-const corsHeaders = () => ({
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Request-Method": "POST, GET, OPTIONS",
-});
-
 async function joinRoom(roomId: string) {
   if (openRooms.has(roomId)) {
     const peerId = await v5.generate(
@@ -61,7 +56,6 @@ async function joinRoom(roomId: string) {
         "Connection": "Keep-Alive",
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        ...corsHeaders(),
       }),
     });
   } else {
@@ -88,27 +82,23 @@ function errorResponse(e: Error) {
   });
 }
 
-async function handler(request: Request): Promise<Response> {
+async function router(request: Request) {
   const url = new URL(request.url);
+  let response: Promise<Response> | Response = errorResponse(
+    new Error("Not found"),
+  );
 
   if (url.pathname.includes("/room/")) {
     const [, , roomId, sse] = url.pathname.split("/");
 
     if (request.method === "OPTION") {
-      return new Response("OK", {
+      response = new Response("OK", {
         status: 204,
-        headers: new Headers({
-          ...corsHeaders(),
-        }),
       });
     }
 
     if (roomId && request.method === "GET" && sse === "sse") {
-      try {
-        return joinRoom(roomId);
-      } catch (e) {
-        return errorResponse(e);
-      }
+      response = joinRoom(roomId);
     }
 
     if (roomId && request.method === "POST" && sse === "sse") {
@@ -116,39 +106,52 @@ async function handler(request: Request): Promise<Response> {
 
       emitInRoom(roomId, event);
 
-      return new Response("OK", {
+      response = new Response("OK", {
         status: 200,
-        headers: new Headers({
-          ...corsHeaders(),
-        }),
       });
     }
 
     if (roomId === "create" && request.method === "POST") {
-      try {
-        const roomId = crypto.randomUUID();
+      const roomId = crypto.randomUUID();
 
-        createRoom(roomId);
+      createRoom(roomId);
 
-        return new Response(
-          JSON.stringify({
-            roomId,
+      response = new Response(
+        JSON.stringify({
+          roomId,
+        }),
+        {
+          headers: new Headers({
+            "Cache-Control": "no-cache",
+            "Content-Type": mime(".json"),
           }),
-          {
-            headers: new Headers({
-              "Cache-Control": "no-cache",
-              "Content-Type": mime(".json"),
-              ...corsHeaders(),
-            }),
-          },
-        );
-      } catch (e) {
-        return errorResponse(e);
-      }
+        },
+      );
     }
   }
 
-  return errorResponse(new Error("Not found"));
+  return response;
+}
+
+async function handler(request: Request): Promise<Response> {
+  let response: Response;
+
+  try {
+    response = await router(request);
+
+    response.headers.append(
+      "Access-Control-Allow-Origin",
+      "https://feature-party.nightcore.app",
+    );
+    response.headers.append(
+      "Access-Control-Request-Method",
+      "POST, GET, OPTIONS",
+    );
+  } catch (e) {
+    response = errorResponse(e);
+  }
+
+  return response;
 }
 
 console.log("App is running at http://localhost:8000/station");
