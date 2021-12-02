@@ -141,7 +141,7 @@ async function handler(request: Request): Promise<Response> {
 
     response.headers.append(
       "Access-Control-Allow-Origin",
-      "https://feature-party.nightcore.app",
+      "*",
     );
     response.headers.append(
       "Access-Control-Request-Method",
